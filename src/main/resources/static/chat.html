@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theo - AI chat webpage</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f; --surface: #111118; --sidebar: #0d0d14;
+            --border: #1e1e2e; --accent: #7c6aff;
+            --accent-dim: rgba(124,106,255,0.15); --accent-glow: rgba(124,106,255,0.4);
+            --text: #e2e2f0; --text-dim: #6b6b8a;
+            --user-bg: #1a1a2e; --ai-bg: #0f0f1a;
+            --green: #4ade80; --green-dim: rgba(74,222,128,0.1);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--text); font-family:'Noto Sans SC',sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+        body::before { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events:none; z-index:0; }
+        header { padding:0 20px; height:52px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; background:var(--surface); position:relative; z-index:10; flex-shrink:0; }
+        .status-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .title { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim); letter-spacing:0.08em; }
+        .app-icon { color: var(--accent); display: flex; align-items: center; justify-content: center; }
+        .model-badge { margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); background:var(--accent-dim); border:1px solid rgba(124,106,255,0.3); padding:3px 10px; border-radius:20px; }
+
+        .main { flex:1; display:flex; overflow:hidden; position:relative; z-index:1; }
+        .sidebar { width:240px; flex-shrink:0; background:var(--sidebar); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+        .sidebar-header { padding:14px 14px 10px; flex-shrink:0; }
+        .new-chat-btn { width:100%; padding:9px 12px; background:var(--accent-dim); border:1px solid rgba(124,106,255,0.3); border-radius:8px; color:var(--accent); font-family:'JetBrains Mono',monospace; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all 0.2s; }
+        .new-chat-btn:hover { background:rgba(124,106,255,0.25); box-shadow:0 0 12px var(--accent-glow); }
+        .sidebar-label { padding:8px 14px 6px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); letter-spacing:0.1em; text-transform:uppercase; }
+
+        .session-list { flex:1; overflow-y:auto; padding:0 8px 8px; }
+        .session-list::-webkit-scrollbar { width:3px; }
+        .session-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+        .session-item { padding:9px 10px; border-radius:7px; cursor:pointer; margin-bottom:2px; transition:background 0.15s; display:flex; align-items:center; gap:8px; border:1px solid transparent; }
+        .session-item:hover { background:rgba(255,255,255,0.04); }
+        .session-item.active { background:var(--accent-dim); border-color:rgba(124,106,255,0.2); }
+        .session-icon { font-size:13px; flex-shrink:0; }
+        .session-title { font-size:13px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
+        .session-item.active .session-title { color:var(--accent); }
+        .session-delete { font-size:11px; color:var(--text-dim); padding:2px 5px; border-radius:4px; display:none; flex-shrink:0; }
+        .session-item:hover .session-delete { display:block; }
+        .session-delete:hover { color:#ff6b6b; background:rgba(255,107,107,0.12); }
+
+        /* 🌟 个人主页挂载面板固定底部 */
+        .sidebar-profile {
+            padding: 14px;
+            border-top: 1px solid var(--border);
+            background: rgba(16, 16, 24, 0.8);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .profile-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--accent-dim);
+            border: 1px solid rgba(124,106,255,0.3);
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .profile-info { flex: 1; overflow: hidden; }
+        .profile-name { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+        .logout-btn { background: transparent; border: none; color: var(--text-dim); cursor: pointer; padding: 6px; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .logout-btn:hover { color: #ff6b6b; background: rgba(255,107,107,0.1); }
+
+        .chat-area { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+        #chat { flex:1; overflow-y:auto; padding:28px 32px; display:flex; flex-direction:column; gap:20px; }
+        #chat::-webkit-scrollbar { width:4px; }
+        #chat::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+        .message { display:flex; gap:12px; animation:fadeUp 0.25s ease; max-width:760px; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        .message.user { align-self:flex-end; flex-direction:row-reverse; }
+        .message.ai { align-self:flex-start; }
+        .avatar { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:10px; flex-shrink:0; font-weight:500; }
+        .message.user .avatar { background:var(--accent-dim); border:1px solid rgba(124,106,255,0.4); color:var(--accent); }
+        .message.ai .avatar { background:var(--green-dim); border:1px solid rgba(74,222,128,0.3); color:var(--green); }
+        .bubble { padding:11px 15px; border-radius:12px; font-size:14px; line-height:1.75; max-width:580px; white-space:pre-wrap; word-break:break-word; }
+        .message.user .bubble { background:var(--user-bg); border:1px solid rgba(124,106,255,0.2); border-top-right-radius:2px; }
+        .message.ai .bubble { background:var(--ai-bg); border:1px solid var(--border); border-top-left-radius:2px; }
+
+        .thinking { display:flex; gap:4px; align-items:center; padding:4px 0; }
+        .thinking span { width:6px; height:6px; border-radius:50%; background:var(--text-dim); animation:blink 1.2s infinite; }
+        .thinking span:nth-child(2){animation-delay:0.2s} .thinking span:nth-child(3){animation-delay:0.4s}
+        @keyframes blink { 0%,80%,100%{opacity:0.3;transform:scale(0.8)} 40%{opacity:1;transform:scale(1)} }
+
+        .input-area { padding:14px 24px; border-top:1px solid var(--border); background:var(--surface); display:none; gap:10px; align-items:flex-end; }
+        #msg { flex:1; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:11px 15px; color:var(--text); font-family:'Noto Sans SC',sans-serif; font-size:14px; outline:none; resize:none; min-height:44px; max-height:120px; transition:border-color 0.2s; line-height:1.5; }
+        #msg:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
+        #send-btn { width:44px; height:44px; border-radius:10px; background:var(--accent); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; }
+        #send-btn:hover { background:#9180ff; box-shadow:0 0 16px var(--accent-glow); }
+        #send-btn:disabled { background:var(--border); cursor:not-allowed; }
+        .empty-state,.no-session { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:var(--text-dim); }
+        .empty-icon { width:48px; height:48px; border-radius:14px; background:var(--accent-dim); border:1px solid rgba(124,106,255,0.3); display:flex; align-items:center; justify-content:center; font-size:22px; }
+        .no-session button { padding:9px 20px; background:var(--accent); border:none; border-radius:8px; color:white; font-size:13px; cursor:pointer; transition:all 0.2s; }
+        .no-session button:hover { background:#9180ff; box-shadow:0 0 12px var(--accent-glow); }
+    </style>
+</head>
+<body>
+<header>
+    <div class="app-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M13.4,2.012c-0.56-0.234-1.24-0.234-1.8,0c-2.9,1.211-4.97,4.023-4.97,7.23c0,4.2,3.4,7.6,7.6,7.6s7.6-3.4,7.6-7.6C21.83,6.035,19.76,3.223,16.86,2.012z" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M5.17,18.834c-2.9-1.211-4.97-4.023-4.97-7.23c0-4.2,3.4-7.6,7.6-7.6c0.56,0,1.11,0.06,1.64,0.18" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+    <div class="status-dot"></div>
+    <div class="title">Theo - AI chat webpage</div>
+    <div class="model-badge">qwen3:8b</div>
+</header>
+<div class="main">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <button class="new-chat-btn" onclick="newSession()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                新对话
+            </button>
+        </div>
+        <div class="sidebar-label">历史会话</div>
+        <div class="session-list" id="session-list"></div>
+
+        <div class="sidebar-profile">
+            <div class="profile-avatar" id="user-avatar">M</div>
+            <div class="profile-info">
+                <div class="profile-name" id="user-display-name">加载中...</div>
+            </div>
+            <button class="logout-btn" onclick="logout()" title="退出登录">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="chat-area">
+        <div id="chat">
+            <div class="no-session" id="no-session">
+                <div class="empty-icon">💬</div>
+                <p style="font-size: 14px; color: var(--text); margin-bottom: 4px;">你好，我是Theo，基于知识库的智能助手</p>
+                <p>// 选择一个历史对话或新建会话开始</p>
+                <button onclick="newSession()">新建对话</button>
+            </div>
+        </div>
+        <div class="input-area" id="input-area">
+            <textarea id="msg" placeholder="输入消息，Enter 发送，Shift+Enter 换行" rows="1"></textarea>
+            <button id="send-btn" onclick="send()">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+<script>
+    // 权限与访问检查拦截器
+    function checkToken() {
+        const token = localStorage.getItem("token");
+        if (!token) { window.location.href = "login.html"; return false; }
+        return token;
+    }
+
+    // 全局数据管道解包过滤
+    function handleResponse(res) {
+        if (res.status === 401) {
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
+            throw new Error("认证失效，请重新登录");
+        }
+        return res.json().then(resData => {
+            if (resData.success === false) { throw new Error(resData.message || "操作错误"); }
+            return resData.data; // 脱外壳核心
+        });
+    }
+
+    // 🌟 动态解析本地 JWT 并提取渲染邮箱信息
+    function initUserProfile() {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const payload = JSON.parse(decodeURIComponent(escape(window.atob(base64))));
+
+            const username = payload.username || "User";
+            document.getElementById("user-display-name").innerText = username;
+            // 截取邮箱第一位作为高颜值头像标志
+            document.getElementById("user-avatar").innerText = username.substring(0, 1).toUpperCase();
+        } catch (e) {
+            console.error("解析 Token 失败", e);
+            document.getElementById("user-display-name").innerText = "已认证用户";
+        }
+    }
+
+    // 🌟 登出机制
+    function logout() {
+        if (confirm("确定要退出当前邮箱账号并重新登录吗？")) {
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
+        }
+    }
+
+    if (checkToken()) {
+        const chatEl = document.getElementById("chat");
+        const msgEl  = document.getElementById("msg");
+        const btnEl  = document.getElementById("send-btn");
+        const inputArea = document.getElementById("input-area");
+        let currentSessionId = null;
+
+        initUserProfile();
+        loadSessions();
+
+        msgEl.addEventListener("keydown", e => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+        });
+
+        msgEl.addEventListener("input", () => {
+            msgEl.style.height = "auto";
+            msgEl.style.height = Math.min(msgEl.scrollHeight, 120) + "px";
+        });
+
+        function showInput() { inputArea.style.display = "flex"; }
+        function hideInput() { inputArea.style.display = "none"; }
+
+        function loadSessions() {
+            fetch("http://localhost:8080/session/list", { headers: { "token": localStorage.getItem("token") } })
+                .then(handleResponse)
+                .then(list => {
+                    const el = document.getElementById("session-list");
+                    el.innerHTML = "";
+                    if (!list) return;
+                    list.forEach(s => {
+                        const item = document.createElement("div");
+                        item.className = "session-item" + (s.id == currentSessionId ? " active" : "");
+                        item.innerHTML = `
+                        <span class="session-icon">💬</span>
+                        <span class="session-title">${s.title}</span>
+                        <span class="session-delete" onclick="deleteSession(event, '${s.id}')">✕</span>
+                    `;
+                        item.onclick = () => switchSession(s.id);
+                        el.appendChild(item);
+                    });
+                }).catch(err => console.error(err.message));
+        }
+
+        function newSession() {
+            fetch("http://localhost:8080/session/create", { method: "POST", headers: { "token": localStorage.getItem("token") } })
+                .then(handleResponse)
+                .then(session => {
+                    currentSessionId = session.id;
+                    showInput(); loadSessions();
+                    chatEl.innerHTML = `<div class="empty-state" id="empty"><div class="empty-icon">⚡</div><p>向Theo发送消息开始新对话</p></div>`;
+                    msgEl.focus();
+                }).catch(err => alert(err.message));
+        }
+
+        function switchSession(sessionId) {
+            currentSessionId = sessionId;
+            showInput(); loadSessions();
+            chatEl.innerHTML = "";
+            fetch(`http://localhost:8080/history?sessionId=${sessionId}`, { headers: { "token": localStorage.getItem("token") } })
+                .then(handleResponse)
+                .then(list => {
+                    if (!list || list.length === 0) {
+                        chatEl.innerHTML = `<div class="empty-state" id="empty"><div class="empty-icon">⚡</div><p>向Theo发送消息开始新对话</p></div>`;
+                        return;
+                    }
+                    list.forEach(item => {
+                        appendMessage("user", item.question);
+                        appendMessage("ai", item.answer);
+                    });
+                }).catch(err => console.error(err.message));
+        }
+
+        function deleteSession(e, sessionId) {
+            e.stopPropagation();
+            if (!confirm("确认删除这个会话？")) return;
+            fetch(`http://localhost:8080/session/${sessionId}`, { method: "DELETE", headers: { "token": localStorage.getItem("token") } })
+                .then(handleResponse)
+                .then(() => {
+                    if (currentSessionId == sessionId) {
+                        currentSessionId = null; hideInput();
+                        chatEl.innerHTML = `<div class="no-session" id="no-session"><div class="empty-icon">💬</div><p>// 选择一个历史对话或新建会话开始</p><button onclick="newSession()">新建对话</button></div>`;
+                    }
+                    loadSessions();
+                }).catch(err => alert(err.message));
+        }
+
+        function appendMessage(role, content) {
+            const empty = document.getElementById("empty"); if (empty) empty.remove();
+            const noSession = document.getElementById("no-session"); if (noSession) noSession.remove();
+
+            const msg = document.createElement("div");
+            msg.className = `message ${role}`;
+            msg.innerHTML = `<div class="avatar">${role === "user" ? "你" : "AI"}</div><div class="bubble">${content}</div>`;
+            chatEl.appendChild(msg);
+            chatEl.scrollTop = chatEl.scrollHeight;
+            return msg;
+        }
+
+        function send() {
+            const msg = msgEl.value.trim(); if (!msg) return;
+            appendMessage("user", msg);
+            msgEl.value = ""; msgEl.style.height = "auto"; btnEl.disabled = true;
+
+            const thinking = appendMessage("ai", '<div class="thinking"><span></span><span></span><span></span></div>');
+            const bubble = thinking.querySelector(".bubble");
+
+            fetch("http://localhost:8080/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "token": localStorage.getItem("token") },
+                body: JSON.stringify({ message: msg, sessionId: currentSessionId })
+            })
+                .then(handleResponse)
+                .then(data => {
+                    bubble.textContent = data.answer;
+                    chatEl.scrollTop = chatEl.scrollHeight;
+                    loadSessions();
+                })
+                .catch(err => { bubble.textContent = "异常: " + err.message; })
+                .finally(() => { btnEl.disabled = false; msgEl.focus(); });
+        }
+    }
+</script>
+</body>
+</html>
