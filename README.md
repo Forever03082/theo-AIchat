@@ -1,4 +1,54 @@
-🛠️ 命令行（CMD）单点销户步骤
+# theo-AIchat
+
+基于 Spring Boot + Ollama 的本地 AI 对话系统。
+这是一个大学生首次自我完成的项目，旨在练习企业开发，首次开发耗时约12小时，其中借助了ChatGPT、Claude、Gemini、豆包等AI工具，也体会到了现代企业开发中AI对人工能力的大量代替。
+
+## 项目简介
+
+本项目是一个支持多会话管理的 AI 聊天应用，使用本地部署的大语言模型（qwen3:8b）提供对话能力，数据完全本地存储，不依赖任何云端 AI 服务。
+
+## 技术栈
+
+- **后端**：Spring Boot 3.x、MyBatis-Plus、JWT、BCrypt
+- **数据库**：MySQL 8.x
+- **AI 引擎**：Ollama（本地部署 qwen3:8b）（后续会支持多模型切换）
+- **前端**：原生 HTML / CSS / JavaScript
+
+## 功能
+
+- 用户注册 / 登录（JWT 鉴权 + BCrypt 密码加密）
+- 多会话管理（新建、切换、删除会话）
+- AI 对话（接入本地 Ollama）
+- 聊天记录持久化存储
+- 历史消息加载
+
+## 本地运行
+
+1. 安装并启动 MySQL，创建数据库
+2. 安装并启动 Ollama，拉取模型：
+```bash
+   ollama pull qwen3:8b
+```
+3. 复制配置文件并填写参数：
+```bash
+   cp src/main/resources/application-example.properties src/main/resources/application.properties
+```
+4. 启动项目：
+```bash
+   mvn spring-boot:run
+```
+5. 浏览器访问：`http://localhost:8080/login.html`
+
+## 环境变量
+
+| 变量名 | 说明 |
+|--------|------|
+| DB_PASSWORD | 数据库密码 |
+| JWT_SECRET | JWT 签名密钥 |
+
+
+
+命令行（CMD）单点销户步骤
 1. 打开 CMD 并进入 MySQL
    按下快捷键 Win + R 输入 cmd 打开命令行，然后输入以下命令登录你的本地数据库（根据你的实际情况修改用户名 root 和密码）：
 
