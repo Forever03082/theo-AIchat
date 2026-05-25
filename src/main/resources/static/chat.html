@@ -232,7 +232,7 @@
         function hideInput() { inputArea.style.display = "none"; }
 
         function loadSessions() {
-            fetch("http://localhost:8080/session/list", { headers: { "token": localStorage.getItem("token") } })
+            fetch("/session/list", { headers: { "token": localStorage.getItem("token") } })
                 .then(handleResponse)
                 .then(list => {
                     const el = document.getElementById("session-list");
@@ -253,7 +253,7 @@
         }
 
         function newSession() {
-            fetch("http://localhost:8080/session/create", { method: "POST", headers: { "token": localStorage.getItem("token") } })
+            fetch("/session/create", { method: "POST", headers: { "token": localStorage.getItem("token") } })
                 .then(handleResponse)
                 .then(session => {
                     currentSessionId = session.id;
@@ -267,7 +267,7 @@
             currentSessionId = sessionId;
             showInput(); loadSessions();
             chatEl.innerHTML = "";
-            fetch(`http://localhost:8080/history?sessionId=${sessionId}`, { headers: { "token": localStorage.getItem("token") } })
+            fetch(`/history?sessionId=${sessionId}`, { headers: { "token": localStorage.getItem("token") } })
                 .then(handleResponse)
                 .then(list => {
                     if (!list || list.length === 0) {
@@ -284,7 +284,7 @@
         function deleteSession(e, sessionId) {
             e.stopPropagation();
             if (!confirm("确认删除这个会话？")) return;
-            fetch(`http://localhost:8080/session/${sessionId}`, { method: "DELETE", headers: { "token": localStorage.getItem("token") } })
+            fetch(`/session/${sessionId}`, { method: "DELETE", headers: { "token": localStorage.getItem("token") } })
                 .then(handleResponse)
                 .then(() => {
                     if (currentSessionId == sessionId) {
@@ -315,7 +315,7 @@
             const thinking = appendMessage("ai", '<div class="thinking"><span></span><span></span><span></span></div>');
             const bubble = thinking.querySelector(".bubble");
 
-            fetch("http://localhost:8080/chat", {
+            fetch("/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "token": localStorage.getItem("token") },
                 body: JSON.stringify({ message: msg, sessionId: currentSessionId })

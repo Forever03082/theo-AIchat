@@ -124,7 +124,7 @@
         // 3. 构建后端路径
         const url = type === 'login' ? "/user/login" : "/user/register";
 
-        fetch("http://localhost:8080" + url, {
+        fetch(url, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
